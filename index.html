@@ -118,21 +118,38 @@ tr:nth-child(even) { background-color: rgba(255,255,255,0.4); }
 .qr-box canvas { width: 250px; height: 250px; }
 .qr-box span { margin-top: 0.5rem; font-size: 1rem; color: #555; }
 
-/* 验证码显示 */
+/* 验证码显示 - 在QR框框上方 */
+.code-display-container {
+  position: fixed;
+  bottom: 320px; /* QR框框上方30px */
+  right: 20px;
+  width: 290px;
+  height: 70px;
+  background: rgba(255,255,255,0.85);
+  border-radius: 20px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  transition: opacity 0.5s ease;
+}
+
+.code-display-label {
+  font-size: 1rem;
+  color: #555;
+  margin-bottom: 5px;
+  font-weight: 600;
+}
+
 .code-display {
-  position: absolute;
-  top: 15px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 10px 20px;
-  border-radius: 10px;
-  font-size: 2rem;
+  font-size: 2.5rem;
   font-weight: bold;
-  letter-spacing: 8px;
-  z-index: 35;
+  letter-spacing: 12px;
   font-family: 'Courier New', monospace;
+  color: #333;
 }
 </style>
 </head>
@@ -153,10 +170,14 @@ tr:nth-child(even) { background-color: rgba(255,255,255,0.4); }
 
 <div class="scene"><div class="carousel" id="carousel"></div></div>
 
+<!-- 验证码显示区域 - 在QR框框上方 -->
+<div class="code-display-container" id="codeDisplayContainer">
+  <div class="code-display-label">Verification Code</div>
+  <div class="code-display" id="codeDisplay">----</div>
+</div>
+
 <!-- QR Code 框框 -->
 <div class="qr-box" id="qrBox">
-  <!-- 4字母验证码显示区域 -->
-  <div class="code-display" id="codeDisplay"></div>
   <canvas id="qrcode"></canvas>
   <span id="qrCountdown">--:--</span>
 </div>
@@ -332,68 +353,74 @@ function testFutureCodes() {
 // 运行测试
 testFutureCodes();
 
-// ===== QR Code 功能 =====
-const qrBox=document.getElementById("qrBox");
-const qrCanvas=document.getElementById("qrcode");
-const qrCountdown=document.getElementById("qrCountdown");
-const codeDisplay=document.getElementById("codeDisplay");
+// ===== QR Code 和验证码功能 =====
+const qrBox = document.getElementById("qrBox");
+const qrCanvas = document.getElementById("qrcode");
+const qrCountdown = document.getElementById("qrCountdown");
+const codeDisplay = document.getElementById("codeDisplay");
+const codeDisplayContainer = document.getElementById("codeDisplayContainer");
 
 // 方便修改的扫描时间段（GMT+8）
-let qrStartTime="8:10"; // hh:mm
-let qrEndTime="23:59";   // hh:mm
+let qrStartTime = "8:10"; // hh:mm
+let qrEndTime = "9:00";   // hh:mm
 
 function updateQR() {
   const now = new Date();
   // 转换为 GMT+8
-  const utc = now.getTime() + (now.getTimezoneOffset()*60000);
-  const gmt8 = new Date(utc + 8*3600000);
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const gmt8 = new Date(utc + 8 * 3600000);
 
-  const currentHM = gmt8.getHours()*60+gmt8.getMinutes();
-  const startHM = Number(qrStartTime.split(":")[0])*60 + Number(qrStartTime.split(":")[1]);
-  const endHM = Number(qrEndTime.split(":")[0])*60 + Number(qrEndTime.split(":")[1]);
+  const currentHM = gmt8.getHours() * 60 + gmt8.getMinutes();
+  const startHM = Number(qrStartTime.split(":")[0]) * 60 + Number(qrStartTime.split(":")[1]);
+  const endHM = Number(qrEndTime.split(":")[0]) * 60 + Number(qrEndTime.split(":")[1]);
 
-  if(currentHM>=startHM && currentHM<=endHM){
+  if (currentHM >= startHM && currentHM <= endHM) {
     // 生成4字母验证码
     const verificationCode = generateVerificationCode();
     codeDisplay.textContent = verificationCode;
     
     // 生成新的 QR Code
     const timestamp = Date.now();
-    const qrValue = (timestamp*Math.PI).toString();
+    const qrValue = (timestamp * Math.PI).toString();
     QRCode.toCanvas(qrCanvas, qrValue, { width: 250 });
     
     // 倒计时显示剩余分钟秒
-    const endDate=new Date(gmt8); endDate.setHours(Number(qrEndTime.split(":")[0]), Number(qrEndTime.split(":")[1]),0,0);
-    const diffSec=Math.floor((endDate-gmt8)/1000);
-    const mm=Math.floor(diffSec/60).toString().padStart(2,"0");
-    const ss=(diffSec%60).toString().padStart(2,"0");
-    qrCountdown.textContent=`Remaining: ${mm}:${ss}`;
+    const endDate = new Date(gmt8); 
+    endDate.setHours(Number(qrEndTime.split(":")[0]), Number(qrEndTime.split(":")[1]), 0, 0);
+    const diffSec = Math.floor((endDate - gmt8) / 1000);
+    const mm = Math.floor(diffSec / 60).toString().padStart(2, "0");
+    const ss = (diffSec % 60).toString().padStart(2, "0");
+    qrCountdown.textContent = `Remaining: ${mm}:${ss}`;
     
-    qrCanvas.style.opacity=1;
-    codeDisplay.style.display = 'block';
+    // 显示QR框和验证码框
+    qrCanvas.style.opacity = 1;
+    codeDisplayContainer.style.opacity = 1;
+    codeDisplayContainer.style.pointerEvents = 'auto';
   } else {
-    qrCountdown.textContent=`Not Available`;
-    qrCanvas.style.opacity=0;
-    codeDisplay.style.display = 'none';
+    qrCountdown.textContent = `Not Available`;
+    qrCanvas.style.opacity = 0;
+    codeDisplay.textContent = '----';
+    codeDisplayContainer.style.opacity = 0.3;
+    codeDisplayContainer.style.pointerEvents = 'none';
   }
 }
 
 // 每秒更新倒计时
-setInterval(updateQR,1000);
+setInterval(updateQR, 1000);
 updateQR();
 
 // 每分钟刷新页面（仅在扫描时间段）
-setInterval(()=>{
+setInterval(() => {
   const now = new Date();
-  const utc = now.getTime() + (now.getTimezoneOffset()*60000);
-  const gmt8 = new Date(utc + 8*3600000);
-  const currentHM = gmt8.getHours()*60+gmt8.getMinutes();
-  const startHM = Number(qrStartTime.split(":")[0])*60 + Number(qrStartTime.split(":")[1]);
-  const endHM = Number(qrEndTime.split(":")[0])*60 + Number(qrEndTime.split(":")[1]);
-  if(currentHM>=startHM && currentHM<=endHM){
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const gmt8 = new Date(utc + 8 * 3600000);
+  const currentHM = gmt8.getHours() * 60 + gmt8.getMinutes();
+  const startHM = Number(qrStartTime.split(":")[0]) * 60 + Number(qrStartTime.split(":")[1]);
+  const endHM = Number(qrEndTime.split(":")[0]) * 60 + Number(qrEndTime.split(":")[1]);
+  if (currentHM >= startHM && currentHM <= endHM) {
     location.reload();
   }
-},60000);
+}, 60000);
 
 </script>
 </body>
